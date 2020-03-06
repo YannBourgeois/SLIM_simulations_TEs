@@ -1,0 +1,49 @@
+####It is not the most elegant way to retrieve information about counts and frequencies, but I like the VCF format since we can extract much more than counts and it can be fed in other pieces of software or converted,
+####So probably the best option for a future inclusion in an ABC-like framework
+####The script requires VCFTools to extract the counts for SNPs and TEs.
+
+module load gencore/1
+module load gencore_variant_detection/1.0
+
+grep "CHROM" simulation_set1_1.vcf > header_VCF
+###vcftools does not like when a VCF does not have any header. I save it so I can create sub-VCFs with each type of insertion/SNP.
+
+for i in simulation_*.vcf
+do
+grep "MT=0" $i > SNPs.vcf
+####If you look in the SLIM file modelling_TEs.slim, you should see that each type of mutation (deleterious SNPs, neutral SNPs, different types of TEs) have a "type" number (0 and 1 for SNPs, 3 for "short" TEs, 5 for "long" TEs. This is what we retrieve here in the VCF.
+grep "MT=1" $i >> SNPs.vcf
+sort -k1,1 -k2,2n SNPs.vcf > SNPs.vcf2
+cat header_VCF SNPs.vcf2 > SNPs.vcf
+rm SNPs.vcf2
+vcftools --vcf SNPs.vcf --counts --out SNPs
+grep -v "CHROM" SNPs.frq.count | awk -v var="$i" '{print $0, var}' | sed "s/:/\t/g" >> simulation_SNPs_all_windows.txt
+
+grep "MT=3" $i | sort -k1,1 -k2,2n > Truncated.vcf
+cat header_VCF Truncated.vcf > Truncated.vcf2
+mv Truncated.vcf2 Truncated.vcf
+vcftools --vcf Truncated.vcf --counts --out Truncated
+grep -v "CHROM" Truncated.frq.count | awk -v var="$i" '{print $0, var}' | sed "s/:/\t/g"  >> simulation_Truncated_all_windows.txt
+
+grep "MT=5" $i > FL.vcf
+grep "MT=2" $i >> FL.vcf
+sort -k1,1 -k2,2n FL.vcf > FL.vcf2
+cat header_VCF FL.vcf2 > FL.vcf
+rm FL.vcf2
+vcftools --vcf FL.vcf --counts --out FL
+grep -v "CHROM" FL.frq.count | awk -v var="$i" '{print $0, var}' | sed "s/:/\t/g"  >> simulation_FL_all_windows.txt
+
+done
+
+
+####You should have files that look a bit like this:
+####
+#1       3348    2       16      A       12      T       4 simulation_set1_10.vcf
+#1       12253   2       16      A       12      T       4 simulation_set1_10.vcf
+#1       16699   2       16      A       14      T       2 simulation_set1_10.vcf
+#1       21734   2       16      A       8       T       8 simulation_set1_10.vcf
+### It lists the "chromosome", the position of an insertion, the number of alternative alleles, the count of alleles in the whole population (2x8 here), a column of "A" (ancestral) and the count of ancestral alleles, a column of "T" and the number of insertions/derived alleles in the sample. The last column tells us which simulation produced a given polymorphism.
+### I use R to estimate densities over windows and plot everything with ggplot2 and DescTools, I am now cleaning this to make it clearer.
+
+
+
