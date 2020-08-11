@@ -1,0 +1,171 @@
+// Population of size 1000, burn-in for 10,000 generations. This template assumes 1% of mutations under positive selection in exons, 0.1% in non-coding regions. 10% under purifying selection in non-coding regions, 70% in exons. See comments below.
+initialize() {
+	defineConstant("N", 1000);
+	defineConstant("mu", 2.1e-7);
+	defineConstant("r1", 2e-7);
+	defineConstant("r2", 2e-8);
+
+	defineConstant("L", 4e6); // total chromosome length
+	defineConstant("L0", 2e6); // between high rec (low rec region)
+	defineConstant("L1", 1e6); // high rec regions
+
+	defineConstant("teInitialCount", 10); //  number of progenitors (see loops) Could be any number as long as we scale jumping rates. This leads to a constant rate though.
+	//defineConstant("teJumpP", 1.11e-3); // TE jump Full Length probability: we take 50% of all jumps, with an overall prob of 1.10-3, so 5e-4, multiplied by 1000 (scaling), but scaled by 4e6/1.8e9
+	//defineConstant("teDisableP", 1.11e-3); // disabling mut probability. These jumping options are now specified in the command line
+	//Note that we could also simply provide these parameters in the command line with the -d option, like what was done with selection coefficients. Could be useful if we were to create an ABC framework.
+	initializeMutationRate(mu);
+	initializeMutationType("m0", 0.5, "f", sel_SNPs); //deleterious mutations fixed effects
+	initializeMutationType("m10", 0.5, "f", sel_SNPs/10); //deleterious mutations in non-coding regions, 10 times less deleterious (hence the /10).
+	initializeMutationType("m1", 0.5, "f", 0); //neutral mutations fixed effects
+	initializeMutationType("m11", 0.5, "f", 0.005); //positively selected mutations fixed effects, 2Ns=10
+	initializeGenomicElementType("g1", c(m0,m1,m11), c(0.7,0.29,0.01)); //exons. 30-70% proportions neutral/deleterious. Also incorporate 1% new mutations under positive selection. Note that we are quite conservative: dN/dS for anoles are around 0.15 on average, so most non-synonymous mutations are strongly deleterious. We assume roughly 3/4 of non-silent sites.
+	initializeGenomicElementType("g2", c(m10,m1,m11), c(0.1,0.899,0.001)); //"Non-functional", assumed to be neutral at 90% and purif selec for 10% of mutations with a sel coeff=1/10 of the one on coding mutations. 0.1% of new mutations are under positive selection.
+	
+	//We create the different exons whic are of type g1 and of length 160bp (close to the average length genome-wide). 375 exons. 125/Mb exons in high rec regions (cumulated: 20,000bp), 63/Mb in low rec regions (cumulated: ~10,000bp).
+	
+	exons_starts=asInteger(161*c(sort(sample(1:round((L1-1)/161),125)),sort(sample(round(L1/161):round((L1+L0-1)/161),125)),sort(sample(round((L1+L0)/161):round((L-170)/161),125)))); ///We do not want any overlap between exons so we ensure that there is at least 160bp between 2 start sites
+	
+	///We create a vector with all exon positions (to test for TE insertions falling in exons, and assign them a strong negative 2Ns=-2000)
+	intervals_exons=exons_starts[0];
+	for (i in exons_starts)
+	{ 
+	intervals_exons<-c(intervals_exons,seq(i,(i+159),1)); 
+	}
+	defineConstant("inter",intervals_exons); ///This is needed, otherwise the variable is lost during the sim part.
+
+///Before first exon
+	initializeGenomicElement(g2,0,exons_starts[0]-1);
+	for (start in 0:373)
+	{
+	initializeGenomicElement(g1,exons_starts[start], exons_starts[start] + 160 - 1);
+	initializeGenomicElement(g2,exons_starts[start]+160, exons_starts[start+1] - 1);
+	}
+	///Last two elements
+	initializeGenomicElement(g1,exons_starts[374], exons_starts[374] + 160 - 1);
+	initializeGenomicElement(g2,exons_starts[374]+160, L - 1);
+	
+	initializeRecombinationRate(c(r1,r2,r1),c(L1-1,L1+L0-1,L-1)); // three regions of length 1Mb with recombination rate of r1, then 2Mb with r2, and 1Mb with r1. Note that this could be replaced by a recombination map for the species of interest if we want to make the script more realistic. 
+
+
+	// transposon mutation type; progenitors, neutral
+	initializeMutationType("m6", 0.5, "f", 0);//The progenitors. They are fixed in all individuals at the start of the simulation, no fitness effect since we need to put them somewhere in the simulated sequence but they are actually taken from the whole genome.
+	m6.convertToSubstitution = F;
+	m6.color = "#FF0000";///Could remove the color, since not using SLiM GUI. Just a remnant of recipe 14.12.
+
+	// transposon mutation type; progenitors, neutral
+	initializeMutationType("m4", 0.5, "f", -1);//TEs that fall into an exon are assumed to have a strong effect on fitness 
+	m4.convertToSubstitution = F;
+	m4.color = "#FF0000";
+
+	// transposon mutation type; long length and in regions of high recombination, selection coefficient is sel_FL_highrec
+	initializeMutationType("m2", dominance_coeff, "f", sel_FL_highrec);
+	m2.convertToSubstitution = F;
+	m2.color = "#FF0000";
+	// transposon mutation type; long length and in regions of low recombination, selection coefficient is sel_FL_lowrec
+	initializeMutationType("m5", dominance_coeff, "f", sel_FL_lowrec);
+	m5.convertToSubstitution = F;
+	m5.color = "#FFFB00";
+	
+	// transposon mutation type; short length (TR stands for "truncated", selection coefficient is sel_TR)
+	initializeMutationType("m3", 0.5, "f", sel_TR);
+	m3.convertToSubstitution = F;
+	m3.color = "#700000";
+	
+}
+
+///Events
+
+1 late() {
+	sim.addSubpop("p1", N);
+	
+	sim.tag = 0;	// the next unique tag value to use for TEs
+	
+	// create some progenitor transposons at random positions
+	genomes = sim.subpopulations.genomes;
+	positions = rdunif(teInitialCount, 0,L-1); 
+	
+	for (teIndex in 0:(teInitialCount-1)) // overall there are as many regions of high than of low recombination!!!
+	{
+		pos = positions[teIndex];
+		mut = genomes.addNewDrawnMutation(m6, pos);///it is genomeS, so fixed in all individuals
+		mut.tag = sim.tag;
+		sim.tag = sim.tag + 1;
+	}
+}
+
+transposition_start:transposition_stop late() {
+	// make active transposons copy themselves full length with rate teJumpP. 
+	// Note that "transposition_start:transposition_stop" needs to be replaced by a sed command before launching the SLIM script. It looks like SLIM would not accept a "-d" command like the ones used in the script Commands_clean_bash_creating_simulations.txt. 
+	//Epiphany (11/08/2020):It should be possible to define a constant in initialize(), with a -d call in the command line. To try in a next version. Sorry dear reader, I am discovering these subtleties as I learn more about Eidos :-).
+	for (individual in sim.subpopulations.individuals)
+	{
+		for (genome in individual.genomes)
+		{
+			tes = genome.mutationsOfType(m6);///Note that it is genome, not genomeS.
+			jumpCount_high = teInitialCount ? rpois(1, teInitialCount * teJumpP * biasP) else 0; //Here we see biasP, which basically controls the probability of jumping then inserting in a high recombination region rather than a low recombination region.
+			truncatedCount_high = teInitialCount ? rpois(1, teInitialCount * teDisableP * biasP) else 0; //A word about syntax: the ? [...] else basically means either we draw from a Poisson distribution if there are active TEs, or do nothing otherwise. In our case, there are always 10 active TEs (the progenitors). So we could simply write "truncatedCount_high = rpois(1, teInitialCount * teDisableP * biasP)". I kept the former in case we want to complexify the model by including a probability for TEs to be inactivated (e.g. through methylation and excision).
+			jumpCount_low = teInitialCount ? rpois(1, teInitialCount * teJumpP  * (1-biasP)) else 0;
+			truncatedCount_low = teInitialCount ? rpois(1, teInitialCount * teDisableP  * (1-biasP)) else 0;
+			
+			if (jumpCount_high) //Means that if the Poisson sampling produced any new TE, then we keep going (short for "if jumpCount_high>0...")
+			{
+				jumpTEs = sample(tes, jumpCount_high);
+				for (te in jumpTEs)
+				{
+					// make a new TE mutation that goes in a region of high recombination
+					pos = sample(c(rdunif(1, 0, L1-1),rdunif(1, L0+L1-1, L-1)),1);////Next line: I haven't found a way in Eidos to test if pos is in the vector inter, therefore this convoluted test... (I tried if (pos %in%  inter) but unlike R, this does not work)
+					if (min(abs(inter-pos))==0) jumpTE = genome.addNewDrawnMutation(m4,pos); else jumpTE = genome.addNewDrawnMutation(m2, pos); ///If it falls in an exon, the TE is strongly deleterious (s=-1)
+					jumpTE.tag = sim.tag;
+					sim.tag = sim.tag + 1;
+				}
+			}
+
+			if (jumpCount_low)
+			{
+				jumpTEs = sample(tes, jumpCount_low);
+				for (te in jumpTEs)
+				{
+					// make a new TE mutation
+					pos = rdunif(1, L1-1,  L0+L1-1);
+					if (min(abs(inter-pos))==0) jumpTE = genome.addNewDrawnMutation(m4,pos); else jumpTE = genome.addNewDrawnMutation(m5, pos);
+					jumpTE.tag = sim.tag;
+					sim.tag = sim.tag + 1;
+				}
+			}
+
+			if (truncatedCount_high)
+			{
+				jumpmutatedTEs = sample(tes, truncatedCount_high);
+				for (te in jumpmutatedTEs)
+				{
+					// make a new TE mutation
+					pos = sample(c(rdunif(1, 0, L1-1),rdunif(1, L0+L1-1, L-1)),1);
+					if (min(abs(inter-pos))==0) jumpTE = genome.addNewDrawnMutation(m4,pos); else jumpTE = genome.addNewDrawnMutation(m3, pos);
+					jumpTE.tag = sim.tag;
+					sim.tag = sim.tag + 1;
+				}
+			}
+
+			if (truncatedCount_low)
+			{
+				jumpmutatedTEs = sample(tes, truncatedCount_low);
+				for (te in jumpmutatedTEs)
+				{
+					// make a new TE mutation
+					pos = rdunif(1, L1-1,  L0+L1-1);
+					if (min(abs(inter-pos))==0) jumpTE = genome.addNewDrawnMutation(m4,pos); else jumpTE = genome.addNewDrawnMutation(m3, pos);
+					jumpTE.tag = sim.tag;
+					sim.tag = sim.tag + 1;
+				}
+			}
+		}
+	}
+}
+
+20000 late()
+{
+	g = p1.sampleIndividuals(8).genomes;// We sample 8 diploid individuals. Can be changed depending on the sample size for a specific study.
+	g.outputVCF(filePath="simulation.vcf");//VCF file but can be changed to ms-style format, or any format useful to compute summary stats.
+}
+
+

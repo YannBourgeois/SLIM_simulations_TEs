@@ -1,21 +1,23 @@
+
+
 #100 simulations/set of parameters
 
 PARAMETERS="set1"
 teJumpP=1.11e-1
-##Full Length TE jump probability: we take 50% of all jumps, with an overall prob of 1.10-3, so 5e-4, multiplied by 1000 (scaling), but scaled by 4e6/1.8e9 (size of the region over size of the genome)
+##Full Length TE jump probability: we take 50% of all jumps, with an overall prob of 1.10-3 for a population of 1 million individuals, so 5e-4 for FL. We multiply this by 1000 (since the simulated population consists of 1000 individuals),and multiply by 4e6/1.8e9 (size of the region over size of the genome)
 teDisableP=1.11e-1
 ##TE jumps and is truncated (weaker impact on fitness).
-sel_SNPs=-0.005
+sel_SNPs=-0.2
 biasP=0.5 
 sel_FL_highrec=-0.005 
 sel_FL_lowrec=-0.0005 
 sel_TR=-0.0001
 dominance_coeff=0.5
-###modelling_TEs.slim is a template that has to be edited. The example below simulates a burst of transposition lasting 100 generations (note that all is scaled by 1000) 1000 generations ago.
+###modelling_TEs_with_exons_and_m4.slim is a template that has to be edited. The example below simulates a burst of transposition lasting 100 generations (note that all is scaled by 1000) 1000 generations ago.
 for i in {1..100}
 do
-sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs.slim | sed "s:transposition_start:19000:" | sed "s:transposition_stop:19100:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
-echo "./slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
+sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs_with_exons_and_m4.slim | sed "s:transposition_start:19000:" | sed "s:transposition_stop:19100:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
+#echo "slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
 done
 
 
@@ -25,17 +27,17 @@ teJumpP=1.11e-3
 ##Full Length TE jump probability: we take 50% of all jumps, with an overall prob of 1.10-3, so 5e-4, multiplied by 1000 (scaling), but scaled by 4e6/1.8e9 (size of the region over size of the genome)
 teDisableP=1.11e-3
 ##TE jumps and is truncated (weaker impact on fitness).
-sel_SNPs=-0.005
+sel_SNPs=-0.2
 biasP=0.5 
 sel_FL_highrec=-0.005 
 sel_FL_lowrec=-0.0005 
 sel_TR=-0.0001
 dominance_coeff=0.5
-###modelling_TEs.slim is a template that has to be edited. The example below is the same as before but this time transposition is kept constant and 100X lower over the last 10000 generations.
+###modelling_TEs_with_exons_and_m4.slim is a template that has to be edited. The example below is the same as before but this time transposition is kept constant and 100X lower over the last 10000 generations.
 for i in {1..100}
 do
-sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs.slim | sed "s:transposition_start:10000:" | sed "s:transposition_stop:20000:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
-echo "./slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
+sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs_with_exons_and_m4.slim | sed "s:transposition_start:10000:" | sed "s:transposition_stop:20000:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
+#echo "slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
 done
 
 
@@ -46,18 +48,18 @@ teJumpP=1.11e-1
 ##Full Length TE jump probability: we take 50% of all jumps, with an overall prob of 1.10-3, so 5e-4, multiplied by 1000 (scaling), but scaled by 4e6/1.8e9 (size of the region over size of the genome)
 teDisableP=1.11e-1
 ##TE jumps and is truncated (weaker impact on fitness).
-sel_SNPs=-0.005
+sel_SNPs=-0.2
 biasP=0.7  
 ####Here we change biasP, which basically controls the probability of jumping then inserting in a high recombination region rather than a low recombination region. It is set such as 70% of TEs that jump
 sel_FL_highrec=-0.005 
 sel_FL_lowrec=-0.0005 
 sel_TR=-0.0001
 dominance_coeff=0.5
-###modelling_TEs.slim is a template that has to be edited. The example below simulates a burst of transposition lasting 100 generations (note that all is scaled by 1000) 1000 generations ago.
+###modelling_TEs_with_exons_and_m4.slim is a template that has to be edited. The example below simulates a burst of transposition lasting 100 generations (note that all is scaled by 1000) 1000 generations ago.
 for i in {1..100}
 do
-sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs.slim | sed "s:transposition_start:19000:" | sed "s:transposition_stop:19100:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
-echo "./slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
+sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs_with_exons_and_m4.slim | sed "s:transposition_start:19000:" | sed "s:transposition_stop:19100:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
+#echo "slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
 done
 
 
@@ -67,21 +69,39 @@ teJumpP=1.11e-3
 ##Full Length TE jump probability: we take 50% of all jumps, with an overall prob of 1.10-3, so 5e-4, multiplied by 1000 (scaling), but scaled by 4e6/1.8e9 (size of the region over size of the genome)
 teDisableP=1.11e-3
 ##TE jumps and is truncated (weaker impact on fitness).
-sel_SNPs=-0.005
+sel_SNPs=-0.2
 biasP=0.7 
 sel_FL_highrec=-0.005 
 sel_FL_lowrec=-0.0005 
 sel_TR=-0.0001
 dominance_coeff=0.5
-###modelling_TEs.slim is a template that has to be edited. The example below is the same as before but this time transposition is kept constant and 100X lower over the last 10000 generations.
+###modelling_TEs_with_exons_and_m4.slim is a template that has to be edited. The example below is the same as before but this time transposition is kept constant and 100X lower over the last 10000 generations.
 for i in {1..100}
 do
-sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs.slim | sed "s:transposition_start:10000:" | sed "s:transposition_stop:20000:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
-echo "./slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
+sed "s:simulation.vcf:simulation_"$PARAMETERS"_$i.vcf:" modelling_TEs_with_exons_and_m4.slim | sed "s:transposition_start:10000:" | sed "s:transposition_stop:20000:" > "modelling_TEs_"$PARAMETERS"_$i.slim"
+#echo "slim -d teJumpP=$teJumpP -d teDisableP=$teDisableP -d sel_SNPs=$sel_SNPs -d biasP=$biasP -d sel_FL_highrec=$sel_FL_highrec -d sel_FL_lowrec=$sel_FL_lowrec -d sel_TR=$sel_TR -d dominance_coeff=$dominance_coeff ./modelling_TEs_"$PARAMETERS"_$i.slim" >> Commands_for_simulations.sh
 done
 
 
 
 
 ####Note that you can then split Commands_for_simulations.sh into several batches to be submitted on a HPC cluster.
+
+
+split -l3 Commands_for_simulations.sh SLIM_jobs.sh
+
+for i in SLIM_jobs.sh*
+do
+cat header $i > 2_$i
+mv 2_$i $i
+done
+
+
+for i in SLIM_jobs.sh*;do sbatch $i;done
+
+
+
+
+
+
 
